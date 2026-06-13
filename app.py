@@ -14,13 +14,13 @@ from rag import pipeline
 from rag.vectorstore import get_store
 from rag.chunking import token_mode
 from rag.ingest import OCR_AVAILABLE
-from rag.generate import _detect_backend
+from rag.generate import detect_backend
 
 app = FastAPI(title="Open-Source RAG PDF Chatbot")
 
 
 @app.on_event("startup")
-def _warmup():
+def warmup():
     try:
         from rag import embeddings, rerank
 
@@ -49,7 +49,7 @@ def health():
         "status": "ok",
         "embed_model": config.EMBED_MODEL,
         "reranker": config.RERANK_MODEL if config.USE_RERANKER else "disabled",
-        "llm_backend": _detect_backend(),
+        "llm_backend": detect_backend(),
         "ocr_available": OCR_AVAILABLE,
         "token_mode": token_mode(),
         "chunk_tokens": config.CHUNK_TOKENS,

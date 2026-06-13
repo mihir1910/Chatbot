@@ -1,30 +1,26 @@
-from __future__ import annotations
-
-from typing import List, Dict, Any
-
 from . import config
 
-_reranker = None
-_load_failed = False
+reranker = None
+load_failed = False
 
 
-def _get_reranker():
-    global _reranker, _load_failed
-    if _reranker is None and not _load_failed:
+def get_reranker():
+    global reranker, load_failed
+    if reranker is None and not load_failed:
         try:
             from sentence_transformers import CrossEncoder
 
-            _reranker = CrossEncoder(config.RERANK_MODEL)
+            reranker = CrossEncoder(config.RERANK_MODEL)
         except Exception:
-            _load_failed = True
-    return _reranker
+            load_failed = True
+    return reranker
 
 
-def rerank(query: str, candidates: List[Dict[str, Any]], top_n: int) -> List[Dict[str, Any]]:
+def rerank(query, candidates, top_n):
     if not config.USE_RERANKER or not candidates:
         return candidates[:top_n]
 
-    model = _get_reranker()
+    model = get_reranker()
     if model is None:
         return candidates[:top_n]
 

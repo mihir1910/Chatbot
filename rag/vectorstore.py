@@ -1,7 +1,3 @@
-from __future__ import annotations
-
-from typing import List, Dict, Any
-
 import chromadb
 from chromadb.config import Settings
 
@@ -20,7 +16,7 @@ class VectorStore:
             metadata={"hnsw:space": config.HNSW_SPACE},
         )
 
-    def add_chunks(self, chunks: List[Chunk], embeddings: List[List[float]]):
+    def add_chunks(self, chunks, embeddings):
         if not chunks:
             return
         self.collection.add(
@@ -39,20 +35,20 @@ class VectorStore:
             ],
         )
 
-    def has_pdf(self, pdf_id: str) -> bool:
+    def has_pdf(self, pdf_id):
         try:
             found = self.collection.get(where={"pdf_id": pdf_id}, limit=1)
             return len(found.get("ids", [])) > 0
         except Exception:
             return False
 
-    def query(self, query_embedding: List[float], top_k: int) -> List[Dict[str, Any]]:
+    def query(self, query_embedding, top_k):
         found = self.collection.query(
             query_embeddings=[query_embedding],
             n_results=top_k,
             include=["documents", "metadatas", "distances"],
         )
-        results: List[Dict[str, Any]] = []
+        results = []
         if not found["ids"] or not found["ids"][0]:
             return results
         for doc, meta, dist in zip(
@@ -67,12 +63,12 @@ class VectorStore:
             )
         return results
 
-    def stats(self) -> Dict[str, Any]:
+    def stats(self):
         try:
             count = self.collection.count()
         except Exception:
             count = 0
-        seen: Dict[str, Dict[str, Any]] = {}
+        seen = {}
         try:
             found = self.collection.get(include=["metadatas"])
             for meta in found.get("metadatas", []):
@@ -98,11 +94,11 @@ class VectorStore:
         )
 
 
-_store: VectorStore | None = None
+store = None
 
 
-def get_store() -> VectorStore:
-    global _store
-    if _store is None:
-        _store = VectorStore()
-    return _store
+def get_store():
+    global store
+    if store is None:
+        store = VectorStore()
+    return store

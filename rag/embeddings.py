@@ -1,22 +1,18 @@
-from __future__ import annotations
-
-from typing import List
-
 from . import config
 
-_model = None
+model = None
 
 
 def get_model():
-    global _model
-    if _model is None:
+    global model
+    if model is None:
         from sentence_transformers import SentenceTransformer
 
-        _model = SentenceTransformer(config.EMBED_MODEL)
-    return _model
+        model = SentenceTransformer(config.EMBED_MODEL)
+    return model
 
 
-def embed_texts(texts: List[str]) -> List[List[float]]:
+def embed_texts(texts):
     encoder = get_model()
     vectors = encoder.encode(
         texts,
@@ -28,9 +24,9 @@ def embed_texts(texts: List[str]) -> List[List[float]]:
     return vectors.tolist()
 
 
-def embed_query(text: str) -> List[float]:
+def embed_query(text):
     return embed_texts([text])[0]
 
 
-def dimension() -> int:
+def dimension():
     return get_model().get_sentence_embedding_dimension()

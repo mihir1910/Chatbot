@@ -1,7 +1,4 @@
-from __future__ import annotations
-
 from dataclasses import dataclass
-from typing import List
 
 from . import config
 from .ingest import DocRecord
@@ -9,23 +6,23 @@ from .ingest import DocRecord
 try:
     import tiktoken
 
-    _ENC = tiktoken.get_encoding("cl100k_base")
+    enc = tiktoken.get_encoding("cl100k_base")
 
-    def _encode(text: str) -> List[int]:
-        return _ENC.encode(text)
+    def encode(text):
+        return enc.encode(text)
 
-    def _decode(tokens: List[int]) -> str:
-        return _ENC.decode(tokens)
+    def decode(tokens):
+        return enc.decode(tokens)
 
-    _TOKEN_MODE = "tiktoken"
+    token_mode_value = "tiktoken"
 except Exception:
-    def _encode(text: str):
+    def encode(text):
         return text.split()
 
-    def _decode(tokens):
+    def decode(tokens):
         return " ".join(tokens)
 
-    _TOKEN_MODE = "words"
+    token_mode_value = "words"
 
 
 @dataclass
@@ -39,15 +36,15 @@ class Chunk:
     index: int
 
 
-def chunk_document(doc: DocRecord) -> List[Chunk]:
-    toks: List = []
-    pages: List[int] = []
+def chunk_document(doc):
+    toks = []
+    pages = []
     for page in doc.pages:
-        encoded = _encode(page.text + "\n\n")
+        encoded = encode(page.text + "\n\n")
         toks.extend(encoded)
         pages.extend([page.page] * len(encoded))
 
-    result: List[Chunk] = []
+    result = []
     if not toks:
         return result
 
@@ -58,7 +55,7 @@ def chunk_document(doc: DocRecord) -> List[Chunk]:
     while cursor < total:
         stop = min(cursor + config.CHUNK_TOKENS, total)
         window = toks[cursor:stop]
-        body = _decode(window).strip()
+        body = decode(window).strip()
         if len(body) >= config.MIN_CHUNK_CHARS:
             spanned = pages[cursor:stop]
             result.append(
@@ -79,5 +76,5 @@ def chunk_document(doc: DocRecord) -> List[Chunk]:
     return result
 
 
-def token_mode() -> str:
-    return _TOKEN_MODE
+def token_mode():
+    return token_mode_value

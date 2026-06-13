@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import textwrap
 from pathlib import Path
 
@@ -104,7 +102,7 @@ DOMAINS = {
 PAGES_PER_DOC = 210
 
 
-def build_pdf(name: str, spec: dict):
+def build_pdf(name, spec):
     pdf = fitz.open()
     sections = list(spec["topics"].items())
     for i in range(PAGES_PER_DOC):

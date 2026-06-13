@@ -1,5 +1,3 @@
-from __future__ import annotations
-
 import re
 import hashlib
 from collections import Counter
@@ -21,9 +19,9 @@ except Exception:
     OCR_AVAILABLE = False
 
 try:
-    from langdetect import detect as _detect_lang
+    from langdetect import detect as detect_lang
 except Exception:
-    _detect_lang = None
+    detect_lang = None
 
 
 @dataclass
@@ -43,20 +41,20 @@ class DocRecord:
     ocr_pages: int = 0
 
 
-_WS_RE = re.compile(r"[ \t]+")
-_MULTI_NL_RE = re.compile(r"\n{3,}")
-_HYPHEN_RE = re.compile(r"(\w)-\n(\w)")
+ws_re = re.compile(r"[ \t]+")
+multi_nl_re = re.compile(r"\n{3,}")
+hyphen_re = re.compile(r"(\w)-\n(\w)")
 
 
-def clean_text(text: str) -> str:
+def clean_text(text):
     text = text.replace("\x00", " ")
-    text = _HYPHEN_RE.sub(r"\1\2", text)
-    text = _WS_RE.sub(" ", text)
-    text = _MULTI_NL_RE.sub("\n\n", text)
+    text = hyphen_re.sub(r"\1\2", text)
+    text = ws_re.sub(" ", text)
+    text = multi_nl_re.sub("\n\n", text)
     return text.strip()
 
 
-def _detect_headers_footers(pages: List[str]) -> set:
+def detect_headers_footers(pages):
     counts = Counter()
     for p in pages:
         lines = [ln.strip() for ln in p.splitlines() if ln.strip()]
@@ -69,7 +67,7 @@ def _detect_headers_footers(pages: List[str]) -> set:
     return {ln for ln, c in counts.items() if c >= threshold}
 
 
-def _strip_chrome(text: str, chrome: set) -> str:
+def strip_chrome(text, chrome):
     kept = []
     for ln in text.splitlines():
         s = ln.strip()
@@ -81,7 +79,7 @@ def _strip_chrome(text: str, chrome: set) -> str:
     return "\n".join(kept)
 
 
-def _ocr_page(page: "fitz.Page") -> str:
+def ocr_page(page):
     if not OCR_AVAILABLE:
         return ""
     pix = page.get_pixmap(dpi=config.OCR_DPI)
@@ -89,43 +87,43 @@ def _ocr_page(page: "fitz.Page") -> str:
     return pytesseract.image_to_string(img)
 
 
-def _safe_lang(text: str) -> str:
-    if not _detect_lang or len(text) < 20:
+def safe_lang(text):
+    if not detect_lang or len(text) < 20:
         return "unknown"
     try:
-        return _detect_lang(text)
+        return detect_lang(text)
     except Exception:
         return "unknown"
 
 
-def extract_pdf(path: str, filename: str | None = None) -> DocRecord:
+def extract_pdf(path, filename=None):
     filename = filename or path.split("/")[-1]
     pdf_id = hashlib.sha1(filename.encode()).hexdigest()[:12]
 
     doc = fitz.open(path)
-    raw_pages: List[tuple[str, str]] = []
+    raw_pages = []
 
     for page in doc:
         native = page.get_text("text") or ""
         if len(native.strip()) >= config.OCR_TEXT_THRESHOLD:
             raw_pages.append((native, "native"))
         else:
-            ocr = _ocr_page(page)
+            ocr = ocr_page(page)
             if len(ocr.strip()) > len(native.strip()):
                 raw_pages.append((ocr, "ocr"))
             else:
                 raw_pages.append((native, "native"))
     doc.close()
 
-    chrome = _detect_headers_footers([t for t, _ in raw_pages])
+    chrome = detect_headers_footers([t for t, _ in raw_pages])
 
     rec = DocRecord(pdf_id=pdf_id, filename=filename, n_pages=len(raw_pages))
     for i, (text, source) in enumerate(raw_pages, start=1):
-        cleaned = clean_text(_strip_chrome(text, chrome))
+        cleaned = clean_text(strip_chrome(text, chrome))
         if not cleaned:
             continue
         rec.pages.append(
-            PageRecord(page=i, text=cleaned, source=source, lang=_safe_lang(cleaned))
+            PageRecord(page=i, text=cleaned, source=source, lang=safe_lang(cleaned))
         )
         if source == "ocr":
             rec.ocr_pages += 1

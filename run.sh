@@ -1,5 +1,4 @@
 #!/usr/bin/env bash
-# One-command setup + launch for the RAG PDF chatbot.
 set -e
 cd "$(dirname "$0")"
 
@@ -10,7 +9,6 @@ if [ ! -d "$VENV" ]; then
   echo "==> Creating virtualenv ($VENV)"
   $PY -m venv "$VENV"
 fi
-# shellcheck disable=SC1091
 source "$VENV/bin/activate"
 
 echo "==> Installing dependencies (first run downloads models, ~2-3 min)"

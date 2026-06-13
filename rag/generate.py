@@ -1,8 +1,5 @@
-from __future__ import annotations
-
 import os
 import re
-from typing import List, Dict, Any, Tuple
 
 from . import config
 
@@ -15,7 +12,7 @@ SYSTEM_PROMPT = (
 )
 
 
-def _build_context(chunks: List[Dict[str, Any]]) -> str:
+def build_context(chunks):
     parts = []
     for idx, chunk in enumerate(chunks, start=1):
         meta = chunk["metadata"]
@@ -29,7 +26,7 @@ def _build_context(chunks: List[Dict[str, Any]]) -> str:
     return "\n\n---\n\n".join(parts)
 
 
-def _user_prompt(question: str, context: str) -> str:
+def user_prompt(question, context):
     return (
         f"Context passages:\n\n{context}\n\n"
         f"Question: {question}\n\n"
@@ -38,19 +35,19 @@ def _user_prompt(question: str, context: str) -> str:
     )
 
 
-def _detect_backend() -> str:
+def detect_backend():
     if config.LLM_BACKEND != "auto":
         return config.LLM_BACKEND
     if os.getenv("ANTHROPIC_API_KEY"):
         return "anthropic"
     if os.getenv("OPENAI_API_KEY"):
         return "openai"
-    if _ollama_up():
+    if ollama_up():
         return "ollama"
     return "extractive"
 
 
-def _ollama_up() -> bool:
+def ollama_up():
     try:
         import requests
 
@@ -60,7 +57,7 @@ def _ollama_up() -> bool:
         return False
 
 
-def _gen_anthropic(question: str, context: str) -> str:
+def gen_anthropic(question, context):
     import anthropic
 
     client = anthropic.Anthropic()
@@ -68,12 +65,12 @@ def _gen_anthropic(question: str, context: str) -> str:
         model=config.ANTHROPIC_MODEL,
         max_tokens=config.LLM_MAX_TOKENS,
         system=SYSTEM_PROMPT,
-        messages=[{"role": "user", "content": _user_prompt(question, context)}],
+        messages=[{"role": "user", "content": user_prompt(question, context)}],
     )
     return "".join(block.text for block in reply.content if block.type == "text").strip()
 
 
-def _gen_openai(question: str, context: str) -> str:
+def gen_openai(question, context):
     from openai import OpenAI
 
     client = OpenAI()
@@ -82,13 +79,13 @@ def _gen_openai(question: str, context: str) -> str:
         max_tokens=config.LLM_MAX_TOKENS,
         messages=[
             {"role": "system", "content": SYSTEM_PROMPT},
-            {"role": "user", "content": _user_prompt(question, context)},
+            {"role": "user", "content": user_prompt(question, context)},
         ],
     )
     return reply.choices[0].message.content.strip()
 
 
-def _gen_ollama(question: str, context: str) -> str:
+def gen_ollama(question, context):
     import requests
 
     reply = requests.post(
@@ -98,7 +95,7 @@ def _gen_ollama(question: str, context: str) -> str:
             "stream": False,
             "messages": [
                 {"role": "system", "content": SYSTEM_PROMPT},
-                {"role": "user", "content": _user_prompt(question, context)},
+                {"role": "user", "content": user_prompt(question, context)},
             ],
             "options": {"num_predict": config.LLM_MAX_TOKENS},
         },
@@ -108,12 +105,12 @@ def _gen_ollama(question: str, context: str) -> str:
     return reply.json()["message"]["content"].strip()
 
 
-_SENT_RE = re.compile(r"(?<=[.!?])\s+")
+sent_re = re.compile(r"(?<=[.!?])\s+")
 
 
-def _gen_extractive(question: str, chunks: List[Dict[str, Any]]) -> str:
+def gen_extractive(question, chunks):
     words = {w for w in re.findall(r"\w+", question.lower()) if len(w) > 2}
-    ranked: List[Tuple[float, str, str]] = []
+    ranked = []
     for chunk in chunks:
         meta = chunk["metadata"]
         pages = (
@@ -122,7 +119,7 @@ def _gen_extractive(question: str, chunks: List[Dict[str, Any]]) -> str:
             else f"p.{meta['page_start']}-{meta['page_end']}"
         )
         cite = f"[{meta['filename']} {pages}]"
-        for raw in _SENT_RE.split(chunk["text"]):
+        for raw in sent_re.split(chunk["text"]):
             sentence = " ".join(raw.split())
             if len(sentence) < 30:
                 continue
@@ -149,19 +146,19 @@ def _gen_extractive(question: str, chunks: List[Dict[str, Any]]) -> str:
     )
 
 
-def generate_answer(question: str, chunks: List[Dict[str, Any]]) -> Dict[str, Any]:
-    backend = _detect_backend()
-    context = _build_context(chunks)
+def generate_answer(question, chunks):
+    backend = detect_backend()
+    context = build_context(chunks)
     try:
         if backend == "anthropic":
-            answer = _gen_anthropic(question, context)
+            answer = gen_anthropic(question, context)
         elif backend == "openai":
-            answer = _gen_openai(question, context)
+            answer = gen_openai(question, context)
         elif backend == "ollama":
-            answer = _gen_ollama(question, context)
+            answer = gen_ollama(question, context)
         else:
-            answer = _gen_extractive(question, chunks)
+            answer = gen_extractive(question, chunks)
     except Exception as err:
-        answer = _gen_extractive(question, chunks)
+        answer = gen_extractive(question, chunks)
         backend = f"extractive (fallback after {backend} error: {err})"
     return {"answer": answer, "backend": backend}

@@ -1,7 +1,4 @@
-from __future__ import annotations
-
 import time
-from typing import Dict, Any, List
 
 from . import config, embeddings, generate, rerank
 from .ingest import extract_pdf
@@ -9,7 +6,7 @@ from .chunking import chunk_document
 from .vectorstore import get_store
 
 
-def ingest_pdf(path: str, filename: str | None = None, skip_if_present: bool = True) -> Dict[str, Any]:
+def ingest_pdf(path, filename=None, skip_if_present=True):
     start = time.time()
     doc = extract_pdf(path, filename)
     store = get_store()
@@ -45,10 +42,10 @@ def ingest_pdf(path: str, filename: str | None = None, skip_if_present: bool = T
     }
 
 
-def answer_query(question: str, top_k: int | None = None, final_k: int | None = None) -> Dict[str, Any]:
+def answer_query(question, top_k=None, final_k=None):
     top_k = top_k or config.TOP_K
     final_k = final_k or config.FINAL_K
-    timings: Dict[str, float] = {}
+    timings = {}
 
     start = time.time()
     q_vec = embeddings.embed_query(question)
@@ -78,7 +75,7 @@ def answer_query(question: str, top_k: int | None = None, final_k: int | None = 
     gen = generate.generate_answer(question, top)
     timings["generate_ms"] = round((time.time() - after_rerank) * 1000, 1)
 
-    sources = _dedup_sources(top)
+    sources = dedup_sources(top)
     total_ms = round((time.time() - start) * 1000, 1)
 
     return {
@@ -86,14 +83,14 @@ def answer_query(question: str, top_k: int | None = None, final_k: int | None = 
         "answer": gen["answer"],
         "backend": gen["backend"],
         "sources": sources,
-        "retrieved": [_view(c) for c in top],
+        "retrieved": [view(c) for c in top],
         "candidates_considered": len(candidates),
         "timings": timings,
         "total_ms": total_ms,
     }
 
 
-def _view(c: Dict[str, Any]) -> Dict[str, Any]:
+def view(c):
     meta = c["metadata"]
     return {
         "filename": meta["filename"],
@@ -105,7 +102,7 @@ def _view(c: Dict[str, Any]) -> Dict[str, Any]:
     }
 
 
-def _dedup_sources(chunks: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+def dedup_sources(chunks):
     seen, out = set(), []
     for c in chunks:
         meta = c["metadata"]
