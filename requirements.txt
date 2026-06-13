@@ -1,0 +1,27 @@
+# --- Web framework ---
+fastapi==0.111.0
+uvicorn[standard]==0.30.1
+python-multipart==0.0.9
+
+# --- PDF extraction + OCR ---
+PyMuPDF==1.24.5            # native text extraction + page rendering (fitz)
+pytesseract==0.3.10        # OCR wrapper (requires system `tesseract` binary)
+Pillow==10.3.0             # image handling for OCR
+langdetect==1.0.9          # language detection
+
+# --- Embeddings (free / open-source) ---
+sentence-transformers==2.7.0   # all-MiniLM-L6-v2 + cross-encoder reranker
+torch>=2.0.0
+
+# --- Vector DB (free / open-source) ---
+chromadb==0.5.0            # persistent HNSW ANN index
+numpy<2.0                  # chromadb 0.5.0 is incompatible with numpy 2.x
+
+# --- Token-aware chunking ---
+tiktoken==0.7.0
+
+# --- Optional hosted LLM backends (only used if API key present) ---
+anthropic==0.34.0
+openai==1.35.0
+httpx<0.28               # openai/anthropic 0.34 use the `proxies` arg removed in httpx 0.28
+requests==2.32.3

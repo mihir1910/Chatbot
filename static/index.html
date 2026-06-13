@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>RAG PDF Chatbot — Open Source Stack</title>
+<style>
+  :root {
+    --bg: #0f1117; --panel: #171a23; --panel2: #1e222e; --line: #2a2f3d;
+    --txt: #e6e8ee; --muted: #9aa3b2; --accent: #6ea8fe; --accent2: #59d499;
+    --warn: #f0b35b;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: -apple-system, Segoe UI, Roboto, Helvetica, Arial, sans-serif;
+         background: var(--bg); color: var(--txt); height: 100vh; display: flex; flex-direction: column; }
+  header { padding: 14px 20px; border-bottom: 1px solid var(--line); display: flex;
+           align-items: center; gap: 14px; background: var(--panel); }
+  header h1 { font-size: 16px; margin: 0; font-weight: 600; }
+  header .pill { font-size: 11px; color: var(--muted); background: var(--panel2);
+                 border: 1px solid var(--line); padding: 3px 8px; border-radius: 20px; }
+  .main { flex: 1; display: flex; min-height: 0; }
+  .left { width: 340px; border-right: 1px solid var(--line); display: flex; flex-direction: column;
+          background: var(--panel); }
+  .center { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  .right { width: 360px; border-left: 1px solid var(--line); overflow-y: auto;
+           background: var(--panel); padding: 14px; }
+  .section-title { font-size: 12px; text-transform: uppercase; letter-spacing: .5px;
+                   color: var(--muted); margin: 0 0 10px; }
+  .left { padding: 16px; overflow-y: auto; }
+  .drop { border: 2px dashed var(--line); border-radius: 10px; padding: 22px 12px; text-align: center;
+          color: var(--muted); cursor: pointer; transition: .15s; font-size: 13px; }
+  .drop:hover, .drop.drag { border-color: var(--accent); color: var(--txt); background: var(--panel2); }
+  button { background: var(--accent); color: #0a0c12; border: none; border-radius: 8px;
+           padding: 9px 14px; font-weight: 600; cursor: pointer; font-size: 13px; }
+  button.secondary { background: var(--panel2); color: var(--txt); border: 1px solid var(--line); }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+  .btn-row { display: flex; gap: 8px; margin-top: 12px; flex-wrap: wrap; }
+  .stat-card { background: var(--panel2); border: 1px solid var(--line); border-radius: 10px;
+               padding: 12px; margin-top: 14px; }
+  .stat-grid { display: flex; gap: 10px; }
+  .stat-grid .num { font-size: 22px; font-weight: 700; }
+  .stat-grid .lbl { font-size: 11px; color: var(--muted); }
+  .filelist { font-size: 12px; margin-top: 10px; max-height: 220px; overflow-y: auto; }
+  .filelist div { padding: 4px 0; border-bottom: 1px solid var(--line); color: var(--muted);
+                  display: flex; justify-content: space-between; gap: 8px; }
+  .filelist b { color: var(--txt); font-weight: 500; overflow: hidden; text-overflow: ellipsis;
+                white-space: nowrap; }
+  .chat { flex: 1; overflow-y: auto; padding: 22px; display: flex; flex-direction: column; gap: 16px; }
+  .msg { max-width: 760px; }
+  .msg.user { align-self: flex-end; }
+  .bubble { padding: 12px 16px; border-radius: 12px; line-height: 1.55; white-space: pre-wrap;
+            font-size: 14px; }
+  .user .bubble { background: var(--accent); color: #0a0c12; }
+  .bot .bubble { background: var(--panel2); border: 1px solid var(--line); }
+  .meta { font-size: 11px; color: var(--muted); margin-top: 6px; }
+  .cites { margin-top: 8px; display: flex; flex-wrap: wrap; gap: 6px; }
+  .cite { font-size: 11px; background: var(--panel); border: 1px solid var(--accent2);
+          color: var(--accent2); padding: 3px 8px; border-radius: 14px; }
+  .composer { border-top: 1px solid var(--line); padding: 14px 18px; display: flex; gap: 10px;
+              background: var(--panel); }
+  .composer input { flex: 1; background: var(--panel2); border: 1px solid var(--line);
+                    color: var(--txt); border-radius: 10px; padding: 12px 14px; font-size: 14px; outline: none; }
+  .composer input:focus { border-color: var(--accent); }
+  .retr { background: var(--panel2); border: 1px solid var(--line); border-radius: 10px;
+          padding: 10px; margin-bottom: 10px; }
+  .retr .top { display: flex; justify-content: space-between; font-size: 12px; margin-bottom: 6px; }
+  .retr .fn { color: var(--accent); font-weight: 600; }
+  .retr .pg { color: var(--muted); }
+  .retr .scores { font-size: 11px; color: var(--accent2); margin-bottom: 6px; }
+  .retr .prev { font-size: 12px; color: var(--muted); line-height: 1.45; max-height: 90px;
+                overflow: hidden; }
+  .bar { height: 5px; background: var(--line); border-radius: 3px; overflow: hidden; margin-top: 4px; }
+  .bar > span { display: block; height: 100%; background: var(--accent); }
+  .timings { font-size: 11px; color: var(--muted); display: flex; flex-wrap: wrap; gap: 8px;
+             margin-top: 6px; }
+  .timings span { background: var(--panel); border: 1px solid var(--line); padding: 2px 7px;
+                  border-radius: 10px; }
+  .empty { color: var(--muted); font-size: 13px; text-align: center; margin-top: 40px; }
+  .spinner { width: 16px; height: 16px; border: 2px solid var(--line); border-top-color: var(--accent);
+             border-radius: 50%; display: inline-block; animation: spin .7s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .toast { position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+           background: var(--panel2); border: 1px solid var(--line); padding: 10px 16px;
+           border-radius: 8px; font-size: 13px; opacity: 0; transition: .3s; pointer-events: none; }
+  .toast.show { opacity: 1; }
+  .examples { margin-top: 8px; display: flex; flex-direction: column; gap: 6px; }
+  .examples button { background: var(--panel2); color: var(--muted); border: 1px solid var(--line);
+                     text-align: left; font-weight: 400; }
+</style>
+</head>
+<body>
+  <header>
+    <h1>📚 RAG PDF Chatbot</h1>
+    <span class="pill" id="p-embed">embed: …</span>
+    <span class="pill" id="p-llm">llm: …</span>
+    <span class="pill" id="p-ocr">ocr: …</span>
+    <span class="pill" id="p-rerank">rerank: …</span>
+  </header>
+
+  <div class="main">
+    <!-- LEFT: ingestion -->
+    <aside class="left">
+      <h2 class="section-title">1 · Document Ingestion</h2>
+      <div class="drop" id="drop">
+        <div>⬆️ Drop PDFs here or click to choose</div>
+        <div style="font-size:11px;margin-top:6px">PDF → OCR → chunk → embed → vector DB</div>
+      </div>
+      <input type="file" id="file" accept="application/pdf" multiple hidden />
+      <div class="btn-row">
+        <button id="btn-ingest-dir" class="secondary">Ingest data/pdfs/</button>
+        <button id="btn-reset" class="secondary">Reset DB</button>
+      </div>
+      <div id="ingest-log" style="font-size:12px;color:var(--muted);margin-top:10px"></div>
+
+      <div class="stat-card">
+        <div class="stat-grid">
+          <div><div class="num" id="s-pdfs">0</div><div class="lbl">PDFs</div></div>
+          <div><div class="num" id="s-chunks">0</div><div class="lbl">Chunks</div></div>
+        </div>
+        <div class="filelist" id="filelist"></div>
+      </div>
+
+      <h2 class="section-title" style="margin-top:18px">Try asking</h2>
+      <div class="examples" id="examples"></div>
+    </aside>
+
+    <!-- CENTER: chat -->
+    <section class="center">
+      <div class="chat" id="chat">
+        <div class="empty" id="empty">Ingest some PDFs, then ask a question.<br>
+          Answers come with source citations (file + page).</div>
+      </div>
+      <div class="composer">
+        <input id="q" placeholder="Ask a question about your PDFs…" autocomplete="off" />
+        <button id="send">Ask</button>
+      </div>
+    </section>
+
+    <!-- RIGHT: retrieval visualization -->
+    <aside class="right">
+      <h2 class="section-title">Retrieval Visualization</h2>
+      <div id="retrieval"><div class="empty" style="margin-top:10px">Top retrieved chunks
+        will appear here after a query.</div></div>
+    </aside>
+  </div>
+  <div class="toast" id="toast"></div>
+
+<script>
+const $ = s => document.querySelector(s);
+const chat = $("#chat");
+
+function toast(msg){ const t=$("#toast"); t.textContent=msg; t.classList.add("show");
+  setTimeout(()=>t.classList.remove("show"), 2600); }
+
+async function loadHealth(){
+  const h = await (await fetch("/api/health")).json();
+  $("#p-embed").textContent = "embed: " + h.embed_model.split("/").pop();
+  $("#p-llm").textContent = "llm: " + h.llm_backend;
+  $("#p-ocr").textContent = "ocr: " + (h.ocr_available ? "on" : "off");
+  $("#p-rerank").textContent = "rerank: " + (h.reranker==="disabled" ? "off" : "on");
+}
+
+async function loadStats(){
+  const s = await (await fetch("/api/stats")).json();
+  $("#s-pdfs").textContent = s.num_pdfs;
+  $("#s-chunks").textContent = s.total_chunks;
+  $("#filelist").innerHTML = s.pdfs.map(p =>
+    `<div><b title="${p.filename}">${p.filename}</b><span>${p.chunks} ch · ${p.max_page}p</span></div>`
+  ).join("") || '<div style="border:none">No PDFs ingested yet.</div>';
+}
+
+const EXAMPLES = [
+  "Summarize the main topic of these documents.",
+  "What are the key definitions mentioned?",
+  "List the most important findings or conclusions.",
+];
+$("#examples").innerHTML = "";
+EXAMPLES.forEach(e=>{ const b=document.createElement("button"); b.textContent=e;
+  b.onclick=()=>{ $("#q").value=e; ask(); }; $("#examples").appendChild(b); });
+
+// ---- ingestion ----
+const drop=$("#drop"), fileInput=$("#file");
+drop.onclick=()=>fileInput.click();
+["dragover","dragenter"].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.add("drag");}));
+["dragleave","drop"].forEach(ev=>drop.addEventListener(ev,e=>{e.preventDefault();drop.classList.remove("drag");}));
+drop.addEventListener("drop", e=>{ if(e.dataTransfer.files.length) uploadFiles(e.dataTransfer.files); });
+fileInput.onchange=()=>{ if(fileInput.files.length) uploadFiles(fileInput.files); };
+
+async function uploadFiles(files){
+  const fd=new FormData();
+  for(const f of files) fd.append("files", f);
+  $("#ingest-log").innerHTML='<span class="spinner"></span> Ingesting '+files.length+' file(s)… (OCR + embedding may take a while)';
+  try{
+    const r=await (await fetch("/api/ingest",{method:"POST",body:fd})).json();
+    $("#ingest-log").innerHTML = r.results.map(x=>
+      `• <b>${x.filename}</b>: ${x.status}${x.chunks?` — ${x.pages}p, ${x.chunks} chunks${x.ocr_pages?`, ${x.ocr_pages} OCR`:''}, ${x.seconds}s`:''}`
+    ).join("<br>");
+    loadStats();
+  }catch(e){ $("#ingest-log").textContent="Error: "+e; }
+}
+
+$("#btn-ingest-dir").onclick=async()=>{
+  $("#ingest-log").innerHTML='<span class="spinner"></span> Ingesting data/pdfs/ …';
+  try{
+    const r=await (await fetch("/api/ingest_dir",{method:"POST"})).json();
+    $("#ingest-log").innerHTML = r.results.map(x=>
+      `• <b>${x.filename}</b>: ${x.status}${x.chunks?` — ${x.pages}p, ${x.chunks} chunks, ${x.seconds}s`:''}`
+    ).join("<br>");
+    loadStats();
+  }catch(e){ const j=await e; $("#ingest-log").textContent="No PDFs in data/pdfs/ (add files there first)."; }
+};
+
+$("#btn-reset").onclick=async()=>{
+  if(!confirm("Wipe the entire vector store?")) return;
+  await fetch("/api/reset",{method:"POST"}); loadStats();
+  $("#ingest-log").textContent="Vector store reset."; toast("Vector store reset");
+};
+
+// ---- chat ----
+function addUser(text){
+  $("#empty")?.remove();
+  const d=document.createElement("div"); d.className="msg user";
+  d.innerHTML=`<div class="bubble"></div>`; d.querySelector(".bubble").textContent=text;
+  chat.appendChild(d); chat.scrollTop=chat.scrollHeight;
+}
+function addBotLoading(){
+  const d=document.createElement("div"); d.className="msg bot";
+  d.innerHTML=`<div class="bubble"><span class="spinner"></span> Retrieving & generating…</div>`;
+  chat.appendChild(d); chat.scrollTop=chat.scrollHeight; return d;
+}
+
+function renderCites(sources){
+  if(!sources.length) return "";
+  return `<div class="cites">`+sources.map(s=>{
+    const pg = s.page_start===s.page_end ? `p.${s.page_start}` : `p.${s.page_start}-${s.page_end}`;
+    return `<span class="cite">📄 ${s.filename} ${pg}</span>`;
+  }).join("")+`</div>`;
+}
+function renderTimings(t, total, backend){
+  const parts=[];
+  for(const k in t) parts.push(`<span>${k.replace('_ms','')}: ${t[k]}ms</span>`);
+  parts.push(`<span>total: ${total}ms</span>`);
+  parts.push(`<span>via ${backend}</span>`);
+  return `<div class="timings">${parts.join("")}</div>`;
+}
+
+function renderRetrieval(items){
+  if(!items.length){ $("#retrieval").innerHTML='<div class="empty">No chunks retrieved.</div>'; return; }
+  const max=Math.max(...items.map(i=>i.rerank_score ?? i.score ?? 0), 0.01);
+  $("#retrieval").innerHTML = items.map((it,i)=>{
+    const pg = it.page_start===it.page_end ? `p.${it.page_start}` : `p.${it.page_start}-${it.page_end}`;
+    const rs = it.rerank_score!=null ? `rerank ${it.rerank_score}` : "";
+    const sc = it.score!=null ? `sim ${it.score}` : "";
+    const w = Math.round(((it.rerank_score ?? it.score ?? 0)/max)*100);
+    return `<div class="retr">
+      <div class="top"><span class="fn">#${i+1} ${it.filename}</span><span class="pg">${pg}</span></div>
+      <div class="scores">${[sc,rs].filter(Boolean).join(" · ")}</div>
+      <div class="bar"><span style="width:${w}%"></span></div>
+      <div class="prev">${(it.preview||"").replace(/</g,"&lt;")}</div>
+    </div>`;
+  }).join("");
+}
+
+async function ask(){
+  const q=$("#q").value.trim(); if(!q) return;
+  $("#q").value=""; addUser(q);
+  const botEl=addBotLoading(); $("#send").disabled=true;
+  try{
+    const r=await (await fetch("/api/query",{method:"POST",
+      headers:{"Content-Type":"application/json"}, body:JSON.stringify({question:q})})).json();
+    if(r.error){ botEl.querySelector(".bubble").textContent="Error: "+r.error; return; }
+    botEl.innerHTML=`<div class="bubble"></div>${renderCites(r.sources)}${renderTimings(r.timings,r.total_ms,r.backend)}`;
+    botEl.querySelector(".bubble").textContent=r.answer;
+    renderRetrieval(r.retrieved||[]);
+    chat.scrollTop=chat.scrollHeight;
+  }catch(e){ botEl.querySelector(".bubble").textContent="Request failed: "+e; }
+  finally{ $("#send").disabled=false; }
+}
+$("#send").onclick=ask;
+$("#q").addEventListener("keydown",e=>{ if(e.key==="Enter") ask(); });
+
+loadHealth(); loadStats();
+</script>
+</body>
+</html>

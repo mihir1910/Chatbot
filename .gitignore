@@ -1,0 +1,6 @@
+.venv/
+__pycache__/
+*.pyc
+data/chroma/
+data/pdfs/*.pdf
+.DS_Store
